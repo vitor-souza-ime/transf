@@ -1,9 +1,9 @@
 # ================================================================
 # TRANSFORMERS NA PRÁTICA: APLICAÇÕES NO DIA A DIA
-# Demonstração com Hugging Face Transformers
 # ================================================================
 
-from transformers import pipeline, MarianMTModel, MarianTokenizer
+from transformers import (pipeline, MarianMTModel, MarianTokenizer,
+                          T5ForConditionalGeneration, T5Tokenizer)
 import matplotlib.pyplot as plt
 
 print("=" * 60)
@@ -24,8 +24,7 @@ avaliacoes = [
     "Excellent customer service and great value for money!"
 ]
 
-resultados_sent = sentiment(avaliacoes)
-for texto, res in zip(avaliacoes, resultados_sent):
+for texto, res in zip(avaliacoes, sentiment(avaliacoes)):
     print(f"  Texto    : {texto[:55]}...")
     print(f"  Resultado: {res['label']} (confiança: {res['score']:.2%})\n")
 
@@ -35,9 +34,9 @@ for texto, res in zip(avaliacoes, resultados_sent):
 # ----------------------------------------------------------------
 print("\n[2] TRADUÇÃO AUTOMÁTICA (Inglês -> Francês)")
 
-model_name = "Helsinki-NLP/opus-mt-en-fr"
-tokenizer  = MarianTokenizer.from_pretrained(model_name)
-model_mt   = MarianMTModel.from_pretrained(model_name)
+mt_name   = "Helsinki-NLP/opus-mt-en-fr"
+mt_tok    = MarianTokenizer.from_pretrained(mt_name)
+mt_model  = MarianMTModel.from_pretrained(mt_name)
 
 frases_en = [
     "Artificial intelligence is transforming the world.",
@@ -46,9 +45,9 @@ frases_en = [
 ]
 
 for frase in frases_en:
-    tokens = tokenizer([frase], return_tensors="pt", padding=True)
-    output = model_mt.generate(**tokens)
-    trad   = tokenizer.decode(output[0], skip_special_tokens=True)
+    tokens = mt_tok([frase], return_tensors="pt", padding=True)
+    output = mt_model.generate(**tokens)
+    trad   = mt_tok.decode(output[0], skip_special_tokens=True)
     print(f"  EN: {frase}")
     print(f"  FR: {trad}\n")
 
@@ -62,7 +61,7 @@ qa = pipeline("question-answering",
 
 contexto = """
     The Transformer architecture was introduced in 2017 by Vaswani et al.
-    in the paper 'Attention Is All You Need'. It replaced recurrent neural
+    in the paper Attention Is All You Need. It replaced recurrent neural
     networks with a self-attention mechanism, enabling parallel processing
     of sequences. Today, Transformers power applications such as ChatGPT,
     Google Translate, virtual assistants, and medical diagnosis systems.
@@ -83,37 +82,37 @@ for pergunta in perguntas:
 
 
 # ----------------------------------------------------------------
-# 4. SUMARIZAÇÃO — CORRIGIDO com T5
+# 4. SUMARIZAÇÃO — direto com T5, sem pipeline
 # ----------------------------------------------------------------
 print("\n[4] SUMARIZAÇÃO DE TEXTO")
 
-# T5-small aceita prefixo "summarize:" e funciona com text2text-generation
-summarizer = pipeline("text2text-generation",
-                      model="t5-small")
+t5_name  = "t5-small"
+t5_tok   = T5Tokenizer.from_pretrained(t5_name)
+t5_model = T5ForConditionalGeneration.from_pretrained(t5_name)
 
-texto_longo = (
-    "summarize: Climate change refers to long-term shifts in temperatures "
-    "and weather patterns. Since the 1800s, human activities have been the "
-    "main driver of climate change, primarily due to the burning of fossil "
-    "fuels like coal, oil and gas. Burning fossil fuels generates greenhouse "
-    "gas emissions that trap the sun's heat and raise temperatures. The main "
-    "greenhouse gases include carbon dioxide and methane, which come from "
-    "driving cars, heating buildings, and agricultural operations. Clearing "
-    "forests also releases large amounts of carbon dioxide into the atmosphere."
+texto_original = (
+    "Climate change refers to long-term shifts in temperatures and weather "
+    "patterns. Since the 1800s, human activities have been the main driver, "
+    "primarily due to burning fossil fuels like coal, oil and gas, which "
+    "generate greenhouse gas emissions that trap the sun's heat. The main "
+    "gases are carbon dioxide and methane, produced by cars, buildings and "
+    "agriculture. Clearing forests also releases large amounts of carbon "
+    "dioxide. Energy, industry, transport and land use are the main sectors "
+    "responsible for greenhouse gas emissions worldwide."
 )
 
-resumo = summarizer(
-    texto_longo,
-    max_new_tokens=80,
-    min_new_tokens=25,
-    do_sample=False
-)
+entrada = "summarize: " + texto_original
+ids     = t5_tok.encode(entrada, return_tensors="pt",
+                        max_length=512, truncation=True)
+saida   = t5_model.generate(ids, max_new_tokens=80,
+                             min_new_tokens=25, num_beams=4,
+                             early_stopping=True)
+resumo  = t5_tok.decode(saida[0], skip_special_tokens=True)
 
-texto_sem_prefixo = texto_longo.replace("summarize: ", "")
-print(f"  TEXTO ORIGINAL ({len(texto_sem_prefixo.split())} palavras):")
-print(f"  {texto_sem_prefixo[:220].strip()}...\n")
-print(f"  RESUMO GERADO ({len(resumo[0]['generated_text'].split())} palavras):")
-print(f"  {resumo[0]['generated_text']}\n")
+print(f"  TEXTO ORIGINAL ({len(texto_original.split())} palavras):")
+print(f"  {texto_original[:220]}...\n")
+print(f"  RESUMO GERADO ({len(resumo.split())} palavras):")
+print(f"  {resumo}\n")
 
 
 # ----------------------------------------------------------------
@@ -132,10 +131,9 @@ categorias = ["medicine", "finance", "technology", "sports", "politics"]
 
 for texto in textos:
     result    = classifier(texto, candidate_labels=categorias)
-    top_label = result['labels'][0]
-    top_score = result['scores'][0]
     print(f"  Texto    : {texto[:60]}...")
-    print(f"  Categoria: {top_label} (confiança: {top_score:.2%})\n")
+    print(f"  Categoria: {result['labels'][0]} "
+          f"(confiança: {result['scores'][0]:.2%})\n")
 
 
 # ----------------------------------------------------------------
@@ -143,21 +141,16 @@ for texto in textos:
 # ----------------------------------------------------------------
 print("\n[6] GERANDO VISUALIZAÇÃO...")
 
-aplicacoes = [
-    "Análise de\nSentimentos",
-    "Tradução\nAutomática",
-    "Resposta a\nPerguntas",
-    "Sumarização\nde Texto",
-    "Classificação\nZero-Shot"
-]
+aplicacoes  = ["Análise de\nSentimentos", "Tradução\nAutomática",
+               "Resposta a\nPerguntas",   "Sumarização\nde Texto",
+               "Classificação\nZero-Shot"]
 acuracias   = [93.1, 91.5, 88.6, 87.3, 85.2]
-cores       = ['#2196F3', '#4CAF50', '#FF9800', '#9C27B0', '#F44336']
+cores       = ['#2196F3','#4CAF50','#FF9800','#9C27B0','#F44336']
 
 fig, axes = plt.subplots(1, 2, figsize=(14, 6))
 fig.suptitle('Transformers: Aplicações e Desempenho no Mundo Real',
              fontsize=14, fontweight='bold')
 
-# Barras horizontais
 bars = axes[0].barh(aplicacoes, acuracias, color=cores,
                     edgecolor='white', height=0.6)
 axes[0].set_xlim(0, 105)
@@ -169,14 +162,12 @@ for bar, val in zip(bars, acuracias):
     axes[0].text(val + 0.5, bar.get_y() + bar.get_height() / 2,
                  f'{val}%', va='center', fontsize=10, fontweight='bold')
 
-# Pizza: setores de adoção
-setores     = ['Saúde', 'Educação', 'Finanças', 'Tecnologia', 'Jurídico', 'Outros']
+setores     = ['Saúde','Educação','Finanças','Tecnologia','Jurídico','Outros']
 tamanhos    = [18, 15, 20, 28, 10, 9]
-explode     = (0.05,) * len(setores)
 cores_pizza = ['#EF5350','#42A5F5','#66BB6A','#FFA726','#AB47BC','#78909C']
 
 axes[1].pie(tamanhos, labels=setores, autopct='%1.1f%%',
-            colors=cores_pizza, explode=explode,
+            colors=cores_pizza, explode=(0.05,)*6,
             startangle=140, textprops={'fontsize': 10})
 axes[1].set_title('Setores de Adoção de\nTransformers (2024)',
                   fontsize=12, fontweight='bold')
