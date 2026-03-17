@@ -5,7 +5,6 @@
 
 from transformers import pipeline, MarianMTModel, MarianTokenizer
 import matplotlib.pyplot as plt
-import numpy as np
 
 print("=" * 60)
 print("  APLICAÇÕES DE TRANSFORMERS NO COTIDIANO")
@@ -32,7 +31,7 @@ for texto, res in zip(avaliacoes, resultados_sent):
 
 
 # ----------------------------------------------------------------
-# 2. TRADUÇÃO AUTOMÁTICA — API CORRIGIDA
+# 2. TRADUÇÃO AUTOMÁTICA
 # ----------------------------------------------------------------
 print("\n[2] TRADUÇÃO AUTOMÁTICA (Inglês -> Francês)")
 
@@ -84,31 +83,37 @@ for pergunta in perguntas:
 
 
 # ----------------------------------------------------------------
-# 4. SUMARIZAÇÃO DE TEXTO
+# 4. SUMARIZAÇÃO — CORRIGIDO com T5
 # ----------------------------------------------------------------
 print("\n[4] SUMARIZAÇÃO DE TEXTO")
-summarizer = pipeline("summarization",
-                      model="sshleifer/distilbart-cnn-12-6")
 
-texto_longo = """
-    Climate change refers to long-term shifts in temperatures and weather patterns.
-    These shifts may be natural, but since the 1800s, human activities have been
-    the main driver of climate change, primarily due to the burning of fossil fuels
-    like coal, oil and gas. Burning fossil fuels generates greenhouse gas emissions
-    that act like a blanket wrapped around the Earth, trapping the sun's heat and
-    raising temperatures. The main greenhouse gases that are causing climate change
-    include carbon dioxide and methane. These come from using gasoline for driving
-    a car or coal for heating a building. Clearing land and cutting down forests
-    can also release carbon dioxide. Agriculture, oil and gas operations are major
-    sources of methane emissions. Energy, industry, transport, buildings,
-    agriculture and land use are among the main sectors causing greenhouse gases.
-"""
+# T5-small aceita prefixo "summarize:" e funciona com text2text-generation
+summarizer = pipeline("text2text-generation",
+                      model="t5-small")
 
-resumo = summarizer(texto_longo, max_length=80, min_length=30, do_sample=False)
-print(f"  TEXTO ORIGINAL ({len(texto_longo.split())} palavras):")
-print(f"  {texto_longo[:200].strip()}...\n")
-print(f"  RESUMO GERADO ({len(resumo[0]['summary_text'].split())} palavras):")
-print(f"  {resumo[0]['summary_text']}\n")
+texto_longo = (
+    "summarize: Climate change refers to long-term shifts in temperatures "
+    "and weather patterns. Since the 1800s, human activities have been the "
+    "main driver of climate change, primarily due to the burning of fossil "
+    "fuels like coal, oil and gas. Burning fossil fuels generates greenhouse "
+    "gas emissions that trap the sun's heat and raise temperatures. The main "
+    "greenhouse gases include carbon dioxide and methane, which come from "
+    "driving cars, heating buildings, and agricultural operations. Clearing "
+    "forests also releases large amounts of carbon dioxide into the atmosphere."
+)
+
+resumo = summarizer(
+    texto_longo,
+    max_new_tokens=80,
+    min_new_tokens=25,
+    do_sample=False
+)
+
+texto_sem_prefixo = texto_longo.replace("summarize: ", "")
+print(f"  TEXTO ORIGINAL ({len(texto_sem_prefixo.split())} palavras):")
+print(f"  {texto_sem_prefixo[:220].strip()}...\n")
+print(f"  RESUMO GERADO ({len(resumo[0]['generated_text'].split())} palavras):")
+print(f"  {resumo[0]['generated_text']}\n")
 
 
 # ----------------------------------------------------------------
@@ -126,7 +131,7 @@ textos = [
 categorias = ["medicine", "finance", "technology", "sports", "politics"]
 
 for texto in textos:
-    result   = classifier(texto, candidate_labels=categorias)
+    result    = classifier(texto, candidate_labels=categorias)
     top_label = result['labels'][0]
     top_score = result['scores'][0]
     print(f"  Texto    : {texto[:60]}...")
@@ -145,8 +150,8 @@ aplicacoes = [
     "Sumarização\nde Texto",
     "Classificação\nZero-Shot"
 ]
-acuracias = [93.1, 91.5, 88.6, 87.3, 85.2]
-cores     = ['#2196F3', '#4CAF50', '#FF9800', '#9C27B0', '#F44336']
+acuracias   = [93.1, 91.5, 88.6, 87.3, 85.2]
+cores       = ['#2196F3', '#4CAF50', '#FF9800', '#9C27B0', '#F44336']
 
 fig, axes = plt.subplots(1, 2, figsize=(14, 6))
 fig.suptitle('Transformers: Aplicações e Desempenho no Mundo Real',
@@ -165,9 +170,9 @@ for bar, val in zip(bars, acuracias):
                  f'{val}%', va='center', fontsize=10, fontweight='bold')
 
 # Pizza: setores de adoção
-setores   = ['Saúde', 'Educação', 'Finanças', 'Tecnologia', 'Jurídico', 'Outros']
-tamanhos  = [18, 15, 20, 28, 10, 9]
-explode   = (0.05,) * len(setores)
+setores     = ['Saúde', 'Educação', 'Finanças', 'Tecnologia', 'Jurídico', 'Outros']
+tamanhos    = [18, 15, 20, 28, 10, 9]
+explode     = (0.05,) * len(setores)
 cores_pizza = ['#EF5350','#42A5F5','#66BB6A','#FFA726','#AB47BC','#78909C']
 
 axes[1].pie(tamanhos, labels=setores, autopct='%1.1f%%',
