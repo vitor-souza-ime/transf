@@ -3,9 +3,8 @@
 # Demonstração com Hugging Face Transformers
 # ================================================================
 
-from transformers import pipeline
+from transformers import pipeline, MarianMTModel, MarianTokenizer
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import numpy as np
 
 print("=" * 60)
@@ -14,7 +13,6 @@ print("=" * 60)
 
 # ----------------------------------------------------------------
 # 1. ANÁLISE DE SENTIMENTOS
-#    Aplicação: avaliações de produtos, redes sociais, SAC
 # ----------------------------------------------------------------
 print("\n[1] ANÁLISE DE SENTIMENTOS")
 sentiment = pipeline("sentiment-analysis",
@@ -29,17 +27,18 @@ avaliacoes = [
 
 resultados_sent = sentiment(avaliacoes)
 for texto, res in zip(avaliacoes, resultados_sent):
-    print(f"  Texto : {texto[:55]}...")
+    print(f"  Texto    : {texto[:55]}...")
     print(f"  Resultado: {res['label']} (confiança: {res['score']:.2%})\n")
 
 
 # ----------------------------------------------------------------
-# 2. TRADUÇÃO AUTOMÁTICA
-#    Aplicação: turismo, comércio internacional, educação
+# 2. TRADUÇÃO AUTOMÁTICA — API CORRIGIDA
 # ----------------------------------------------------------------
 print("\n[2] TRADUÇÃO AUTOMÁTICA (Inglês -> Francês)")
-translator = pipeline("translation_en_to_fr",
-                      model="Helsinki-NLP/opus-mt-en-fr")
+
+model_name = "Helsinki-NLP/opus-mt-en-fr"
+tokenizer  = MarianTokenizer.from_pretrained(model_name)
+model_mt   = MarianMTModel.from_pretrained(model_name)
 
 frases_en = [
     "Artificial intelligence is transforming the world.",
@@ -48,14 +47,15 @@ frases_en = [
 ]
 
 for frase in frases_en:
-    trad = translator(frase, max_length=100)[0]['translation_text']
+    tokens = tokenizer([frase], return_tensors="pt", padding=True)
+    output = model_mt.generate(**tokens)
+    trad   = tokenizer.decode(output[0], skip_special_tokens=True)
     print(f"  EN: {frase}")
     print(f"  FR: {trad}\n")
 
 
 # ----------------------------------------------------------------
-# 3. RESPOSTA A PERGUNTAS (Question Answering)
-#    Aplicação: assistentes virtuais, suporte técnico, educação
+# 3. RESPOSTA A PERGUNTAS
 # ----------------------------------------------------------------
 print("\n[3] RESPOSTA A PERGUNTAS")
 qa = pipeline("question-answering",
@@ -85,7 +85,6 @@ for pergunta in perguntas:
 
 # ----------------------------------------------------------------
 # 4. SUMARIZAÇÃO DE TEXTO
-#    Aplicação: jornalismo, jurídico, relatórios corporativos
 # ----------------------------------------------------------------
 print("\n[4] SUMARIZAÇÃO DE TEXTO")
 summarizer = pipeline("summarization",
@@ -114,7 +113,6 @@ print(f"  {resumo[0]['summary_text']}\n")
 
 # ----------------------------------------------------------------
 # 5. CLASSIFICAÇÃO ZERO-SHOT
-#    Aplicação: triagem de conteúdo, categorização automática
 # ----------------------------------------------------------------
 print("\n[5] CLASSIFICAÇÃO ZERO-SHOT")
 classifier = pipeline("zero-shot-classification",
@@ -128,7 +126,7 @@ textos = [
 categorias = ["medicine", "finance", "technology", "sports", "politics"]
 
 for texto in textos:
-    result = classifier(texto, candidate_labels=categorias)
+    result   = classifier(texto, candidate_labels=categorias)
     top_label = result['labels'][0]
     top_score = result['scores'][0]
     print(f"  Texto    : {texto[:60]}...")
@@ -136,7 +134,7 @@ for texto in textos:
 
 
 # ----------------------------------------------------------------
-# 6. VISUALIZAÇÃO: APLICAÇÕES E ACURÁCIAS TÍPICAS
+# 6. VISUALIZAÇÃO FINAL
 # ----------------------------------------------------------------
 print("\n[6] GERANDO VISUALIZAÇÃO...")
 
@@ -147,16 +145,14 @@ aplicacoes = [
     "Sumarização\nde Texto",
     "Classificação\nZero-Shot"
 ]
-
-# Acurácias/scores típicos reportados na literatura
 acuracias = [93.1, 91.5, 88.6, 87.3, 85.2]
-cores = ['#2196F3', '#4CAF50', '#FF9800', '#9C27B0', '#F44336']
+cores     = ['#2196F3', '#4CAF50', '#FF9800', '#9C27B0', '#F44336']
 
 fig, axes = plt.subplots(1, 2, figsize=(14, 6))
 fig.suptitle('Transformers: Aplicações e Desempenho no Mundo Real',
-             fontsize=14, fontweight='bold', y=1.01)
+             fontsize=14, fontweight='bold')
 
-# Gráfico de barras horizontais
+# Barras horizontais
 bars = axes[0].barh(aplicacoes, acuracias, color=cores,
                     edgecolor='white', height=0.6)
 axes[0].set_xlim(0, 105)
@@ -168,11 +164,11 @@ for bar, val in zip(bars, acuracias):
     axes[0].text(val + 0.5, bar.get_y() + bar.get_height() / 2,
                  f'{val}%', va='center', fontsize=10, fontweight='bold')
 
-# Gráfico de pizza: setores de aplicação no mundo real
-setores = ['Saúde', 'Educação', 'Finanças', 'Tecnologia', 'Jurídico', 'Outros']
-tamanhos = [18, 15, 20, 28, 10, 9]
-explode = (0.05,) * len(setores)
-cores_pizza = ['#EF5350', '#42A5F5', '#66BB6A', '#FFA726', '#AB47BC', '#78909C']
+# Pizza: setores de adoção
+setores   = ['Saúde', 'Educação', 'Finanças', 'Tecnologia', 'Jurídico', 'Outros']
+tamanhos  = [18, 15, 20, 28, 10, 9]
+explode   = (0.05,) * len(setores)
+cores_pizza = ['#EF5350','#42A5F5','#66BB6A','#FFA726','#AB47BC','#78909C']
 
 axes[1].pie(tamanhos, labels=setores, autopct='%1.1f%%',
             colors=cores_pizza, explode=explode,
